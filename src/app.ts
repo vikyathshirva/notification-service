@@ -1,6 +1,6 @@
 import express from 'express';
 import 'express-async-errors';
-import {json} from 'body-parser';
+import { json } from 'body-parser';
 import { users } from './store/store';
 import { notification } from './routes/notification';
 import { errorHandler } from './middlewares/error-handlers';
@@ -12,17 +12,9 @@ app.use(notification);
 app.use(errorHandler);
 
 
-app.get('*', ()=>{
+app.get('*', () => {
     throw new NotFoundError()
-})
-
-app.listen(3000, ()=>{
-
-    // users.forEach(element => {
-    //     console.log(element);
-    // });
-
-    console.log('listening on port 3000');
-    
-    
 }) 
+
+
+export { app }
