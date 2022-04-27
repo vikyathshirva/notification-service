@@ -12,6 +12,10 @@ import { streams } from "avsc/types";
 import { eventType } from "../models/eventType";
 import { WatchEventType } from "fs";
 import EventEmitter from "events";
+import { cache } from "../models/cache";
+import { count } from "console";
+import { eventTypeByTopic } from "../models/eventByTopic";
+import { whatsAppHandler } from "./third-party-intg/whatsapp-handler";
 
 
 const eventEmitter = new EventEmitter;
@@ -41,9 +45,12 @@ export const notificationFeeder = (body: notificationPayload) => {
     rateLimiter();
 };
 
-
+/**
+ * Can implement a cache layer to check for limiting, but will skip that part
+ */
 function rateLimiter() {
-    let received = [];
+    let received: any[] = [];
+    let limit = 1 ;
     console.log('rate limiter called');
 
     
@@ -58,20 +65,88 @@ function rateLimiter() {
         consumer.subscribe(['test']);
         consumer.consume();
     }).on('data', (data) => {
-
-        
-        received.push(eventType.fromBuffer(data?.value ?? Buffer.from('corrupted data') ));
-
-
-
+        let testObj;
+        if ((data !== undefined || null) && limit !== 0){
+            testObj = JSON.parse(JSON.stringify(eventType.fromBuffer(data?.value ?? Buffer.from('corrupted data')))).freq[0];
+            (testObj === 'default' || parseInt(testObj) >= limit ) ? received.push(eventType.fromBuffer(data?.value ?? Buffer.from('corrupted data'))) : "";
         // console.log(`received  : ${eventType.fromBuffer(data.value)}`);
+        }else if(limit == 0){
+            received.push(eventType.fromBuffer(data?.value ?? Buffer.from('corrupted data')));
+        }
         console.log(`received:  ${eventType.fromBuffer(data?.value ?? Buffer.from('error handling inside here//'))}`);
+        console.log("storage array",received);
+
+        received.forEach(ele => {
+            notificationHandler(ele);
+        })
+        
     })
 
-    while(received.length>1){
-        
-    }
     
+    
+}
+
+/**
+ *  Use this to transform data or removed fields
+ * @param ele 
+ */
+function notificationHandler(ele : any){
+    let transformationArray = [];
+    transformationArray.push(ele);
+    console.log("transform",transformationArray);
+    whatsAppHandler();
+    if( transformationArray.length > 0){
+        const streamWhatsapp = Kafka.Producer.createWriteStream({
+            'metadata.broker.list': 'localhost:9092'
+        }, {}, { topic: 'whatsapp' });
+
+        const streamSms = Kafka.Producer.createWriteStream({
+            'metadata.broker.list': 'localhost:9092'
+        }, {}, { topic: 'sms' });
+
+        const streamSlack = Kafka.Producer.createWriteStream({
+            'metadata.broker.list': 'localhost:9092'
+        }, {}, { topic: 'slack' });
+
+        const streamEmail = Kafka.Producer.createWriteStream({
+            'metadata.broker.list': 'localhost:9092'
+        }, {}, { topic: 'email' });
+
+        let result;
+        transformationArray.forEach(notification => {
+            let obj = {
+                title: notification.title,
+                message: notification.message,
+                phone: notification.phone,
+                email: notification.email
+            }
+            if (notification.medium.includes('whatsApp')) {
+                result = streamWhatsapp.write(eventTypeByTopic.toBuffer(obj));
+                
+            }
+            if (notification.medium.includes('slack')) {
+                result = streamSlack.write(eventTypeByTopic.toBuffer(obj));
+            }
+            if (notification.medium.includes('sms')) {
+                result = streamEmail.write(eventTypeByTopic.toBuffer(obj));
+            }
+            if (notification.medium.includes('email')) {
+                result = streamEmail.write(eventTypeByTopic.toBuffer(obj));
+            }
+        })
+
+        if (result) {
+            console.log("stream written succesffully to last kafka broker");
+
+        } else {
+            console.log("stream cannot be written to last kafka broker");
+        }
+    }
+
+    
+
+
+
 }
 
 
@@ -137,20 +212,20 @@ function feederValidationFilter(userId: string, notificationStream: notification
     if (userId != '*' && userId.length > 1) {
         // throw an error
         notificationStream = users.filter(user => user.id === userId)
-            .map(({ id, group, ...keep }) => keep)
+            .map(({ group, ...keep }) => keep)
             .map(ele => ({ ...ele, message: offerNotification.message }))
             .map(ele => ({ ...ele, title: offerNotification.title }));
 
     } else {
 
         if (mediums.includes('*') || group.includes('*')) {
-            notificationStream = users.map(({ id, group, ...keep }) => keep)
+            notificationStream = users.map(({ group, ...keep }) => keep)
                 .map(ele => ({ ...ele, message: offerNotification.message }))
                 .map(ele => ({ ...ele, title: offerNotification.title }));
         } else {
             notificationStream = users.filter(user => user.medium.some(ele => mediums.includes(ele)))
                 .filter(user => user.group.some(ele => group.includes(ele)))
-                .map(({ id, group, ...keep }) => keep)
+                .map(({  group, ...keep }) => keep)
                 .map(ele => ({ ...ele, message: offerNotification.message }))
                 .map(ele => ({ ...ele, title: offerNotification.title }));
         }
@@ -159,10 +234,12 @@ function feederValidationFilter(userId: string, notificationStream: notification
     notificationStream.forEach(ele => {
         // console.log("loggin inside feeder validator",ele);
         const obj = {
+            id : ele.id,
             title : ele.title,
             message: ele.message,
             phone : ele.phone,
             email: ele.email,
+            freq: ele.freq,
             medium: Array.from(ele.medium)
         }
         const result = stream.write(eventType.toBuffer(obj));

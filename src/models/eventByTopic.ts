@@ -1,14 +1,10 @@
 import avro, { types } from 'avsc';
 import { Type } from 'avsc';
 
-const eventType = avro.Type.forSchema({
+const eventTypeByTopic = avro.Type.forSchema({
     type: 'record',
     name: 'notification',
     fields: [
-        {
-            name: 'id',
-            type: 'string'
-        },
         {
             name: 'title',
             type:  'string'
@@ -24,17 +20,9 @@ const eventType = avro.Type.forSchema({
         {
             name: 'email',
             type: 'string'
-        },
-        {
-            name: 'medium',
-            type: Type.forValue(['slack','whatsapp'])
-        },
-        {
-            name: 'freq',
-            type: Type.forValue(['1', 'default'])
         }
     ]
 });
 
 
-export { eventType };
+export { eventTypeByTopic };

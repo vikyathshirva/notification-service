@@ -26,7 +26,7 @@ let users : User [] = [
         group: ['A', 'B'],
         email: 'vik@vik.com',
         medium: ['whatsApp'],
-        freq: ['default'],
+        freq: ['1'],
         sub: true
     },
     {
@@ -36,15 +36,15 @@ let users : User [] = [
         email: 'asdf@adksf.com',
         medium: [ 'slack','sms'],
         freq: ['default'],
-        sub: true
+        sub: false
     },
     {
         id: 'hlsry38451',
         phone: '9827381823',
         group: ['A', 'B'],
         email: 'asdf@adksf.com',
-        medium: [ 'slack','sms'],
-        freq: ['default'],
+        medium: [ 'slack','sms','whatsApp'],
+        freq: ['1'],
         sub: true
     },
     {
@@ -52,7 +52,7 @@ let users : User [] = [
         phone: '9827381823',
         group: ['A', 'B'],
         email: 'asdf@adksf.com',
-        medium: [ 'slack','sms'],
+        medium: [ 'slack','email'],
         freq: ['default'],
         sub: true
     }
