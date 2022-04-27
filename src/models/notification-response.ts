@@ -3,4 +3,5 @@ export type notificationBody = {
     message: string,
     email : string,
     phone : string,
+    medium : string[]
 }

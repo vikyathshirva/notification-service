@@ -4,5 +4,7 @@ export type User = {
     phone : string;
     group : string [];
     medium : string [];
+    freq : string[];
+    sub : boolean;
 }
 

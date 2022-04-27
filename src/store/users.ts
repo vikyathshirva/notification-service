@@ -7,42 +7,54 @@ let users : User [] = [
         phone: '9827381823',
         group: ['A', 'B'],
         email: 'asdf@adksf.com',
-        medium: [ 'whatsApp','slack']
+        medium: [ 'whatsApp','slack'],
+        freq: ['default'],
+        sub : true
     },
     {
         id: 'hlsry3845',
         phone: '9827381823',
         email: 'asdf@adksf.com',
         group: ['A', 'B'],
-        medium: [ 'slack','sms']
+        medium: [ 'slack','sms'],
+        freq: ['1','m'],
+        sub: true
     },
     {
         id: 'hlsry38452',
         phone: '9827381823',
         group: ['A', 'B'],
         email: 'vik@vik.com',
-        medium: ['whatsApp']
+        medium: ['whatsApp'],
+        freq: ['default'],
+        sub: true
     },
     {
         id: 'hlsry38453',
         phone: '9827381823',
         group: ['A', 'B'],
         email: 'asdf@adksf.com',
-        medium: [ 'slack','sms']
+        medium: [ 'slack','sms'],
+        freq: ['default'],
+        sub: true
     },
     {
         id: 'hlsry38451',
         phone: '9827381823',
         group: ['A', 'B'],
         email: 'asdf@adksf.com',
-        medium: [ 'slack','sms']
+        medium: [ 'slack','sms'],
+        freq: ['default'],
+        sub: true
     },
     {
         id: 'hlsry38459',
         phone: '9827381823',
         group: ['A', 'B'],
         email: 'asdf@adksf.com',
-        medium: [ 'slack','sms']
+        medium: [ 'slack','sms'],
+        freq: ['default'],
+        sub: true
     }
 ];
 
