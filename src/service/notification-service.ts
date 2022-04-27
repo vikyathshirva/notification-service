@@ -5,6 +5,14 @@ import { notificationPayload } from "../models/payload";
 import { notificationBody } from "../models/notification-response";
 import { Notification } from "../models/notification-model";
 import cron from "node-cron"
+import Kafka from "node-rdkafka"
+import { KafkaConsumer } from "node-rdkafka";
+import { json } from "stream/consumers";
+import { Stream } from "stream";
+import { streams } from "avsc/types";
+import { eventType } from "../models/eventType";
+import { WatchEventType } from "fs";
+
 
 
 
@@ -25,11 +33,55 @@ export const notificationFeeder = (body: notificationPayload) => {
     if (adhc) {
         notificationStream = feederValidationFilter(userId, notificationStream, offerNotification, mediums, group);
     } else {
-        notificationStream = scheduler(schedule, notificationStream, userId, offerNotification, mediums, group);
+        notificationStream.push(Object.assign(scheduler(schedule, notificationStream, userId, offerNotification, mediums, group)));
+
         console.log("set up cron jobs for scheduling");
     }
     console.log("notification feeder reached");
-    console.log(notificationStream);
+    function queueMessage() {
+        notificationStream.forEach(ele => {
+            const obj = {
+                title : ele.title,
+                message : ele.message,
+                phone : ele.phone,
+                email: ele.email
+            }
+            const result = stream.write(eventType.toBuffer(obj));
+            if (result) {
+                console.log("stream written succesffully");;
+            } else {
+                console.log("stream cannot be written");;
+            }
+        })
+
+    }
+
+    const stream = Kafka.Producer.createWriteStream({
+        'metadata.broker.list': 'localhost:9092'
+    }, {}, { topic: 'test' });
+
+
+    setInterval(() => {
+        queueMessage();
+    }, 4000)
+
+
+
+    const consumer = new Kafka.KafkaConsumer({
+        'group.id': 'kafka',
+        'metadata.broker.list': 'localhost:9092'
+    }, {});
+    consumer.connect();
+    consumer.on('ready', ()=>{
+        console.log("consumer ready");
+
+        consumer.subscribe(['test']);
+        consumer.consume(); 
+    }).on('data', (data )=>{
+        
+        console.log(`received ${eventType.fromBuffer(data.value}`);
+    })
+
 };
 
 
@@ -46,15 +98,14 @@ export const notificationFeeder = (body: notificationPayload) => {
  */
 function scheduler(schedule: string[], notificationStream: notificationBody[], userId: string, offerNotification: Notification, mediums: string[], group: string[]) {
     let cronStr = '';
-    let h = 23;
-    let m = 59;
+    const h = 23;
+    const m = 59;
     if (schedule.length > 2) {
         if (schedule[2] === "m") {
             cronStr = `* * ${schedule[0]} * *`;
 
         } else if (schedule[2] === "w") {
             cronStr = `* * * * ${schedule[0]}`;
-
         }
     } else {
         if (schedule[1] == "d") {
@@ -74,7 +125,7 @@ function scheduler(schedule: string[], notificationStream: notificationBody[], u
 
     cron.schedule(cronStr, function () {
         notificationStream = feederValidationFilter(userId, notificationStream, offerNotification, mediums, group);
-        console.log(notificationStream);
+        // console.log("notificationStream running ...");
     });
     return notificationStream;
 }

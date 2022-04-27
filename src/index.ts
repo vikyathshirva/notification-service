@@ -16,13 +16,13 @@ app.get('*', ()=>{
     throw new NotFoundError()
 })
 
-app.listen(3000, ()=>{
+app.listen(30303, ()=>{
 
     // users.forEach(element => {
     //     console.log(element);
     // });
 
-    console.log('listening on port 3000');
+    console.log('listening on port 30303');
     
     
 }) 
