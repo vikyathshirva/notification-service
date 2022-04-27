@@ -1,7 +1,7 @@
 import express from 'express';
 import 'express-async-errors';
 import {json} from 'body-parser';
-import { users } from './store/store';
+import { users } from './store/users';
 import { notification } from './routes/notification';
 import { errorHandler } from './middlewares/error-handlers';
 import { NotFoundError } from './errors/not-found-error';

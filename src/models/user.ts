@@ -1,7 +1,8 @@
 export type User = {
-    id : String;
-    email : String;
-    phone : String;
-    medium : String [];
+    id : string;
+    email : string;
+    phone : string;
+    group : string [];
+    medium : string [];
 }
 
