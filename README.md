@@ -129,9 +129,59 @@ For running this we would need Node ,Kafka (need docker for the kafka instance)
     --bootstrap-server localhost:9092 \
     --replication-factor 1 \
     --partitions 2 \
-    --topic email
+    --topic emai
   ```
- 
+ 4 This application exposes just one endpoint that is
+   ```sh
+    api/v1/notification
+  ```
+  send data as the body of the request
+   ```sh
+   {
+    "medium" : ["whatsApp"], // [ array of string ]
+    "schedule" : [12,"s"], // [ schedule ]]
+    "adhc" : true, // boolean
+    "userId" : "*", // string
+    "group" : ["A"] // [array of string]
+    }
+  ```
+```sh
+    "medium" 
+
+    add vendors here like whatsapp sms etc 
+    ex :['whatsApp']
+    
+  ```
+```sh
+    "schedule" 
+
+    Set a schedule so the notification can be Set as a cron job, in order to use this set adhc to false
+    ex :[1,"d","m"], minimum number of variables 2, max 3
+    the following example is read as for the first day of the month
+    ex : [1,"m"] read as once a month
+  ```
+
+  ```sh
+    "adhc" 
+
+      boolean value that determines wether the mode is ad hoc or not, setting this to true would override schedule option, as adhc would take precedence.
+      ex : true , setting this to true would send it in an ad hoc manner every time the request is sent
+  ```
+  ```sh
+    "userId" 
+
+      set the userId you want to trigger the notification event for. Type conforms to a String, sets only one vairable
+      ex : "kahsd9213" a random userId that is known prior to sending the request
+  ```
+  ```sh
+    "group" 
+
+      Takes in a array of strings , which is associated with each user, this logically groups users into groups. used for setting the events in bullk.
+      ex : ["A", "B"] read as send a notification event to every user that belongs to group A and B
+  ```
+  
+
+  
   
 
 
