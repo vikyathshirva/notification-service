@@ -1,10 +1,15 @@
-FROM  node:alpine
-
+FROM  node:14-alpine
 
 WORKDIR /app
 
-COPY package.json .
-RUN npm install --only=prod
-COPY . .
+RUN apk add --no-cache python3 py3-pip make g++
 
-CMD ["npm","install"]
+
+
+COPY package.json package-lock.json ./
+RUN npm install -g npm@8.8.0 
+
+COPY . .
+RUN npm install
+
+CMD ["npm","start"]

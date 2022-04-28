@@ -13,6 +13,7 @@ import { emailHandler } from "./third-party-intg/email-handler";
 import { smsHandler } from "./third-party-intg/sms-handler";
 import async from "async";
 import { nextTick } from "process";
+import { InternalServerError } from "../errors/database-connection-error";
 
 // const eventEmitter = new EventEmitter;
 
@@ -42,7 +43,7 @@ export const notificationFeeder = (body: notificationPayload) => {
         (next: any) => {
 
             if (adhc) {
-
+                
                 feederValidationFilter(userId, notificationStream, offerNotification, mediums, group), next(null, "res");
             } else {
                 scheduler(schedule, notificationStream, userId, offerNotification, mediums, group), next(null, "res");
@@ -59,7 +60,7 @@ export const notificationFeeder = (body: notificationPayload) => {
         }
     ], (error: any, result: any) => {
         if (error) {
-            console.log('Error occured');
+            throw new InternalServerError();
 
         } else {
             console.log('async succeeded');
@@ -131,7 +132,7 @@ function rateLimiter(mediums: any) {
         }
     ], (err, res) => {
         if (err) {
-            console.log(`error occurred ${err}`);
+            throw new InternalServerError();
         } else {
 
             console.log("exiting RL");
@@ -269,7 +270,7 @@ function notificationHandler(data: any, mediums: any) {
             next(null, "done");
         }], (error, result) => {
             if (error) {
-                console.log("fail");
+                throw new InternalServerError();
 
             } else {
 
@@ -409,7 +410,7 @@ function feederValidationFilter(userId: string, notificationStream: notification
     ], (error: any, result: any) => {
 
         if (error) {
-            console.log(error.message);
+            throw new InternalServerError();
         } else {
             //    console.log("exiting FV validator succesfully");
         }

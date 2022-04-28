@@ -4,7 +4,8 @@ import { CustomError } from '../errors/custom-error';
 
 
 /**
- * Custom erro handler
+ * Main error handler which catches all other custom type instances and sends it back
+ * this is used as a middleware for main index routes
  * @param err 
  * @param req 
  * @param res 

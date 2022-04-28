@@ -4,16 +4,14 @@
 /**
  * custom error handling type 1
  */
-export class DatabaseConnectionError extends Error {
+export class InternalServerError extends Error {
     statusCode = 500;
-    reason = 'Error connecting to a database';
+    reason = 'Internal server error';
 
     constructor() {
-        super();
-        Object.setPrototypeOf(this, DatabaseConnectionError.prototype);
+        super('Something went wrong, please try again later');
+        Object.setPrototypeOf(this, InternalServerError.prototype);
     }
-
-
 
     serializeErrors() {
         return [
