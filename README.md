@@ -19,7 +19,7 @@
 <div align="center">
 
 
-  <h3 align="left">Notification Service</h3>
+  <h1 align="left">Notification Service</h1>
 
 
 </div>
@@ -97,10 +97,42 @@ For running this we would need Node ,Kafka (need docker for the kafka instance)
   ```sh
   docker-compose up
   ```
-3.  
+3.  To make sure kafka receive the notification events to its broker which is split by topics you need to create the few topics to is
+
   ```sh
-  docker-compose up
+  docker exec -it kafka /opt/bitnami/kafka/bin/kafka-topics.sh \
+    --create \
+    --bootstrap-server localhost:9092 \
+    --replication-factor 1 \
+    --partitions 1 \
+    --topic test
   ```
+   ```sh
+  docker exec -it kafka /opt/bitnami/kafka/bin/kafka-topics.sh \
+    --create \
+    --bootstrap-server localhost:9092 \
+    --replication-factor 1 \
+    --partitions 2 \
+    --topic sms
+  ```
+  ```sh
+    docker exec -it kafka /opt/bitnami/kafka/bin/kafka-topics.sh \
+    --create \
+    --bootstrap-server localhost:9092 \
+    --replication-factor 1 \
+    --partitions 2 \
+    --topic whatsapp
+  ```
+  ```sh
+    docker exec -it kafka /opt/bitnami/kafka/bin/kafka-topics.sh \
+    --create \
+    --bootstrap-server localhost:9092 \
+    --replication-factor 1 \
+    --partitions 2 \
+    --topic email
+  ```
+ 
+  
 
 
 
