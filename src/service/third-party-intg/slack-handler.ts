@@ -1,6 +1,11 @@
 import Kafka from "node-rdkafka";
 import { eventTypeByTopic } from "../../models/eventByTopic";
 
+
+/**
+ * This is the handler for slack types, usually any other third paty vendors can be integrated here,
+ * as we receive the data directly from the kafka broker which can be fed into another service
+ */
 export const slackHandler = async () => {
 
     const consumerSlack = new Kafka.KafkaConsumer({

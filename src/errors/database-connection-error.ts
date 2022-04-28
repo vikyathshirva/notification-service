@@ -1,5 +1,9 @@
 
 
+
+/**
+ * custom error handling type 1
+ */
 export class DatabaseConnectionError extends Error {
     statusCode = 500;
     reason = 'Error connecting to a database';

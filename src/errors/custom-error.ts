@@ -1,3 +1,7 @@
+
+/**
+ * Custom error handler which can be used to send strictly formatted errors back
+ */
 export abstract class CustomError extends Error {
     abstract statusCode: number;
     constructor(message: string) {
