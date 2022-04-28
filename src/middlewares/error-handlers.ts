@@ -7,7 +7,6 @@ export const errorHandler = (err: Error, req: Request, res: Response, next: Next
     //     // console.log('handling the error as request validation error');
     //     return res.status(err.statusCode).send({errors: err.serializeErrors()});
     // }
-
     if (err instanceof CustomError){
         return res.status(err.statusCode).send({errors: err.serializeErrors()});
     }

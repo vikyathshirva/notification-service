@@ -27,7 +27,7 @@ const eventType = avro.Type.forSchema({
         },
         {
             name: 'medium',
-            type: Type.forValue(['slack','whatsapp'])
+            type: Type.forValue(['slack','w'])
         },
         {
             name: 'freq',

@@ -1,24 +1,22 @@
 import { notifications } from "../store/notification-message";
-import { User } from "../models/user";
 import { users } from "../store/users";
 import { notificationPayload } from "../models/payload";
 import { notificationBody } from "../models/notification-response";
 import { Notification } from "../models/notification-model";
 import cron from "node-cron"
 import Kafka from "node-rdkafka"
-import { KafkaConsumer } from "node-rdkafka";
-import { json } from "stream/consumers";
-import { streams } from "avsc/types";
 import { eventType } from "../models/eventType";
-import { WatchEventType } from "fs";
-import EventEmitter from "events";
-import { cache } from "../models/cache";
-import { count } from "console";
 import { eventTypeByTopic } from "../models/eventByTopic";
 import { whatsAppHandler } from "./third-party-intg/whatsapp-handler";
+import { slackHandler } from "./third-party-intg/slack-handler";
+import { emailHandler } from "./third-party-intg/email-handler";
+import { smsHandler } from "./third-party-intg/sms-handler";
+import async from "async";
+import { nextTick } from "process";
+
+// const eventEmitter = new EventEmitter;
 
 
-const eventEmitter = new EventEmitter;
 
 
 /**
@@ -35,54 +33,117 @@ export const notificationFeeder = (body: notificationPayload) => {
     let offerNotification = notifications[0];
     let standardNotification = notifications[1];
     let notificationStream: notificationBody[] = [];
-    if (adhc) {
-        feederValidationFilter(userId, notificationStream, offerNotification, mediums, group);
-    } else {
-        scheduler(schedule, notificationStream, userId, offerNotification, mediums, group);
-        console.log("set up cron jobs for scheduling");
-    }
 
-    rateLimiter();
+    async.waterfall([
+        (next: (arg0: null) => void) => {
+
+            next(null)
+        },
+        (next: any)=>{
+    
+            if (adhc) {
+                
+                feederValidationFilter(userId, notificationStream, offerNotification, mediums, group), next(null, "res");
+            } else {
+                
+                scheduler(schedule, notificationStream, userId, offerNotification, mediums, group), next(null, "res");
+                console.log("set up cron jobs for scheduling");
+            }
+        },
+        (data: any, next: (arg0: null, arg1: string) => void)=>{
+
+            
+            
+            rateLimiter(mediums);
+            // next(null,"done");
+            
+        }
+    ],(error: any, result: any)=>{
+        if(error){
+            console.log('Error occured');
+            
+        }else{
+            console.log('async succeeded');   
+            
+           
+        }
+    })
+
+
 };
 
 /**
  * Can implement a cache layer to check for limiting, but will skip that part
  */
-function rateLimiter() {
+ function rateLimiter(mediums : any){
     let received: any[] = [];
-    let limit = 1 ;
-    console.log('rate limiter called');
-
-    
-    
-    const consumer = new Kafka.KafkaConsumer({
-        'group.id': 'kafka',
-        'metadata.broker.list': 'localhost:9092'
-    }, {});
-    consumer.connect();
-    consumer.on('ready', () => {
-        console.log("consumer ready");
-        consumer.subscribe(['test']);
-        consumer.consume();
-    }).on('data', (data) => {
-        let testObj;
-        if ((data !== undefined || null) && limit !== 0){
-            testObj = JSON.parse(JSON.stringify(eventType.fromBuffer(data?.value ?? Buffer.from('corrupted data')))).freq[0];
-            (testObj === 'default' || parseInt(testObj) >= limit ) ? received.push(eventType.fromBuffer(data?.value ?? Buffer.from('corrupted data'))) : "";
-        // console.log(`received  : ${eventType.fromBuffer(data.value)}`);
-        }else if(limit == 0){
-            received.push(eventType.fromBuffer(data?.value ?? Buffer.from('corrupted data')));
-        }
-        console.log(`received:  ${eventType.fromBuffer(data?.value ?? Buffer.from('error handling inside here//'))}`);
-        console.log("storage array",received);
-
-        received.forEach(ele => {
-            notificationHandler(ele);
-        })
+    let limit = 1;
+    async.waterfall([
         
-    })
+        async (next: (arg0: any, arg1: string) => any)=>{
+            whatsAppHandler();
+            // slackHandler();
+            // emailHandler();
+            // smsHandler();
+            console.log('rate limiter hit');
+            const consumeInit = new Kafka.KafkaConsumer({
+                'group.id': 'kafka',
+                'metadata.broker.list': 'localhost:9092'
+            }, {});
+         
+            
+            consumeInit.connect();
+            consumeInit.on('ready', () => {
+                
+                // emailHandler();
+                
+                console.log("consumer ready");
+                consumeInit.subscribe(['test']);
+                consumeInit.consume();
+            }).on('data', (data) => {
+                console.log('CONSUMER 1 : hit');
+                // notificationHandler(data);
+                // old ternary : received.push(eventType.fromBuffer(data?.value ?? Buffer.from('corrupted data')))
 
+                if ((data !== undefined || null) && limit !== 0) {
+                    let testObj = JSON.parse(JSON.stringify(eventType.fromBuffer(data?.value ?? Buffer.from('corrupted data')))).freq[0];
+                    (testObj === 'default' || parseInt(testObj) >= limit) ? notificationHandler(data,mediums) : "";
+                    // console.log(`received  : ${eventType.fromBuffer(data.value)}`);
+                } else if (limit === 0) {
+                    // received.push(eventType.fromBuffer(data?.value ?? Buffer.from('corrupted data')));
+                    notificationHandler(data, mediums);
+                }
+
+
+                // console.log(`received:  ${eventType.fromBuffer(data?.value ?? Buffer.from('error handling inside here//'))}`);
+                // console.log("storage array",received);
+            }).on('connection.failure',()=> {next(Error('connection.failure'),"error")})
+                .on('rebalance.error', () => {next(Error('rebalance.error'), "error")})
+                .on('disconnected', () => {next(Error('disconnected'), "error")})
+                .on('event.error', () => {next(Error('event.error'), "error")})
+                .on('unsubscribed', () => {next(null, "asdf")});    
+
+        }
+    ],(err,res)=> {
+        if(err){
+            console.log(`error occurred ${err}`);
+        }else{  
+            
+            console.log("exiting RL");
+            
+            
+        }
+
+    })
     
+    
+        
+
+      
+
+      
+
+
     
 }
 
@@ -90,58 +151,211 @@ function rateLimiter() {
  *  Use this to transform data or removed fields
  * @param ele 
  */
-function notificationHandler(ele : any){
-    let transformationArray = [];
-    transformationArray.push(ele);
-    console.log("transform",transformationArray);
-    whatsAppHandler();
-    if( transformationArray.length > 0){
-        const streamWhatsapp = Kafka.Producer.createWriteStream({
-            'metadata.broker.list': 'localhost:9092'
-        }, {}, { topic: 'whatsapp' });
+function notificationHandler(data : any, mediums: any){
+    const streamWhatsapp = Kafka.Producer.createWriteStream({
+        'metadata.broker.list': 'localhost:9092'
+    }, {}, { topic: 'whatsapp' });
 
-        const streamSms = Kafka.Producer.createWriteStream({
-            'metadata.broker.list': 'localhost:9092'
-        }, {}, { topic: 'sms' });
+    const streamSms = Kafka.Producer.createWriteStream({
+        'metadata.broker.list': 'localhost:9092'
+    }, {}, { topic: 'sms' });
 
-        const streamSlack = Kafka.Producer.createWriteStream({
-            'metadata.broker.list': 'localhost:9092'
-        }, {}, { topic: 'slack' });
+    const streamSlack = Kafka.Producer.createWriteStream({
+        'metadata.broker.list': 'localhost:9092'
+    }, {}, { topic: 'slack' });
 
-        const streamEmail = Kafka.Producer.createWriteStream({
-            'metadata.broker.list': 'localhost:9092'
-        }, {}, { topic: 'email' });
+    const streamEmail = Kafka.Producer.createWriteStream({
+        'metadata.broker.list': 'localhost:9092'
+    }, {}, { topic: 'email' });
+    
+    // received.push(data);
+    // let testObj;
+    // if ((data !== undefined || null) && limit !== 0) {
+    //     testObj = JSON.parse(JSON.stringify(eventType.fromBuffer(data?.value ?? Buffer.from('corrupted data')))).freq[0];
+    //     (testObj === 'default' || parseInt(testObj) >= limit) ? received.push(eventType.fromBuffer(data?.value ?? Buffer.from('corrupted data'))) : "";
+    //     // console.log(`received  : ${eventType.fromBuffer(data.value)}`);
+    // } else if (limit == 0) {
+    //     received.push(eventType.fromBuffer(data?.value ?? Buffer.from('corrupted data')));
+    // }
+    // console.log(`received:  ${eventType.fromBuffer(data?.value ?? Buffer.from('error handling inside here//'))}`);
+    // console.log("storage array", received);
 
-        let result;
-        transformationArray.forEach(notification => {
-            let obj = {
-                title: notification.title,
-                message: notification.message,
-                phone: notification.phone,
-                email: notification.email
-            }
-            if (notification.medium.includes('whatsApp')) {
-                result = streamWhatsapp.write(eventTypeByTopic.toBuffer(obj));
+            async.waterfall([
+                (next: (arg0: null, arg1: string) => void)=>{
+                    if (data != null) {
+                        let allRecieved = [];
+                        let testObj = JSON.parse(JSON.stringify(eventType.fromBuffer(data?.value ?? Buffer.from('corrupted data'))))
+                        allRecieved.push(testObj);
+                        // console.log("Inside notification handler", testObj.medium);
+                        // console.log("Inside notification handler equ check w", testObj.medium.includes('whatsApp'));
+                        // console.log("Inside notification handler equ check s", testObj.medium.includes('slack'));
+                        
+                        console.log("mediums",mediums);
+                        
+
+                        if (mediums.includes('whatsApp') && testObj.medium.some((ele: any) => mediums.includes(ele))) {
+                            let obj = {
+                                title: testObj.title,
+                                message: testObj.message,
+                                phone: testObj.phone,
+                                email: testObj.email
+                            }
+                            let resultWhatsapp = streamWhatsapp.write(eventTypeByTopic.toBuffer(obj));
+                            if (resultWhatsapp) {
+
+                                console.log("PRODUCER 2 : stream written succesffully to whatsapp kafka broker");
+
+                            } else {
+                                console.log("PRODUCER 2 : stream cannot be written to whatsapp kafka broker");
+                            }
+
+                        }
+                         if (mediums.includes('slack') && testObj.medium.some((ele: any) => mediums.includes(ele))) {
+                            let obj = {
+                                title: testObj.title,
+                                message: testObj.message,
+                                phone: testObj.phone,
+                                email: testObj.email
+                            }
+                            let resultSlack = streamSlack.write(eventTypeByTopic.toBuffer(obj));
+                            if (resultSlack) {
+
+                                console.log("PRODUCER 2 : stream written succesffully to slack kafka broker");
+
+                            } else {
+                                console.log("PRODUCER 2 : stream cannot be written to slack kafka broker");
+                            }
+                        }
+                         if (mediums.includes('sms') && testObj.medium.some((ele: any) => mediums.includes(ele))) {
+                            let obj = {
+                                title: testObj.title,
+                                message: testObj.message,
+                                phone: testObj.phone,
+                                email: testObj.email
+                            }
+                            let resultSms = streamSms.write(eventTypeByTopic.toBuffer(obj));
+                            if (resultSms) {
+                                console.log("PRODUCER 2 :  stream written succesffully to sms kafka broker");
+
+                            } else {
+                                console.log("PRODUCER 2 : stream cannot be written to sms kafka broker");
+                            }
+                        }
+
+                        //checker && mediums.some(ele => testObj.medium.includes(ele))
+                        if (mediums.includes('email') && testObj.medium.some((ele: any) => mediums.includes(ele))) {
+                            let obj = {
+                                title: testObj.title,
+                                message: testObj.message,
+                                phone: testObj.phone,
+                                email: testObj.email
+                            }
+                            let resultEmail = streamEmail.write(eventTypeByTopic.toBuffer(obj));
+                            if (resultEmail) {
+                                console.log("PRODUCER 2 : stream written succesffully to email kafka broker");
+
+                            } else {
+                                console.log("PRODUCER 2 : stream cannot be written to email kafka broker");
+                            }
+                        }
+                        
+                    }
+
+
+
+                    next(null,"done");
+            }],(error, result)=>{
+                if(error){
+                    console.log("fail");
+                    
+                }else{
+                    
+                    console.log("scucess");
+                    
+                }
+
+            })
+ 
+            
+
+
+       
+
+    
+    
+
+    // let transformationArray = [];
+    // transformationArray.push(ele);
+    // console.log("transform",transformationArray);
+    
+    // while( transformationArray.length > 0){
+    //     const streamWhatsapp = Kafka.Producer.createWriteStream({
+    //         'metadata.broker.list': 'localhost:9092'
+    //     }, {}, { topic: 'whatsapp' });
+
+    //     const streamSms = Kafka.Producer.createWriteStream({
+    //         'metadata.broker.list': 'localhost:9092'
+    //     }, {}, { topic: 'sms' });
+
+    //     const streamSlack = Kafka.Producer.createWriteStream({
+    //         'metadata.broker.list': 'localhost:9092'
+    //     }, {}, { topic: 'slack' });
+
+    //     const streamEmail = Kafka.Producer.createWriteStream({
+    //         'metadata.broker.list': 'localhost:9092'
+    //     }, {}, { topic: 'email' });
+
+    //     let result;
+    //     transformationArray.forEach(notification => {
+    //         let obj = {
+    //             title: notification.title,
+    //             message: notification.message,
+    //             phone: notification.phone,
+    //             email: notification.email
+    //         }
+    //         if (notification.medium.includes('whatsApp')) {
+    //             result = streamWhatsapp.write(eventTypeByTopic.toBuffer(obj));
+    //             if (result) {
+    //                 console.log("stream written succesffully to last kafka broker");
+
+    //             } else {
+    //                 console.log("stream cannot be written to last kafka broker");
+    //             }
                 
-            }
-            if (notification.medium.includes('slack')) {
-                result = streamSlack.write(eventTypeByTopic.toBuffer(obj));
-            }
-            if (notification.medium.includes('sms')) {
-                result = streamEmail.write(eventTypeByTopic.toBuffer(obj));
-            }
-            if (notification.medium.includes('email')) {
-                result = streamEmail.write(eventTypeByTopic.toBuffer(obj));
-            }
-        })
+    //         }
+    //         if (notification.medium.includes('slack')) {
+    //             result = streamSlack.write(eventTypeByTopic.toBuffer(obj));
+    //             if (result) {
+    //                 console.log("stream written succesffully to last kafka broker");
 
-        if (result) {
-            console.log("stream written succesffully to last kafka broker");
+    //             } else {
+    //                 console.log("stream cannot be written to last kafka broker");
+    //             }
+    //         }
+    //         if (notification.medium.includes('sms')) {
+    //             result = streamEmail.write(eventTypeByTopic.toBuffer(obj));
+    //             if (result) {
+    //                 console.log("stream written succesffully to last kafka broker");
 
-        } else {
-            console.log("stream cannot be written to last kafka broker");
-        }
-    }
+    //             } else {
+    //                 console.log("stream cannot be written to last kafka broker");
+    //             }
+    //         }
+    //         if (notification.medium.includes('email')) {
+    //             result = streamEmail.write(eventTypeByTopic.toBuffer(obj));
+    //             if (result) {
+    //                 console.log("stream written succesffully to last kafka broker");
+
+    //             } else {
+    //                 console.log("stream cannot be written to last kafka broker");
+    //             }
+    //         }
+    //     })
+
+        
+    // }
+
+   
 
     
 
@@ -187,8 +401,8 @@ function scheduler(schedule: string[], notificationStream: notificationBody[], u
 
 
 
-    cron.schedule(cronStr, function() {
-        feederValidationFilter(userId, notificationStream, offerNotification, mediums, group);
+    cron.schedule(cronStr,  function() {
+         feederValidationFilter(userId, notificationStream, offerNotification, mediums, group);
         console.log("notificationStream running ...");
     });
 }
@@ -204,52 +418,81 @@ function scheduler(schedule: string[], notificationStream: notificationBody[], u
  * @returns 
  */
 function feederValidationFilter(userId: string, notificationStream: notificationBody[], offerNotification: Notification, mediums: string[], group: string[]) {
-
     const stream = Kafka.Producer.createWriteStream({
         'metadata.broker.list': 'localhost:9092'
     }, {}, { topic: 'test' });
-    
-    if (userId != '*' && userId.length > 1) {
-        // throw an error
-        notificationStream = users.filter(user => user.id === userId)
-            .map(({ group, ...keep }) => keep)
-            .map(ele => ({ ...ele, message: offerNotification.message }))
-            .map(ele => ({ ...ele, title: offerNotification.title }));
 
-    } else {
-
-        if (mediums.includes('*') || group.includes('*')) {
-            notificationStream = users.map(({ group, ...keep }) => keep)
-                .map(ele => ({ ...ele, message: offerNotification.message }))
-                .map(ele => ({ ...ele, title: offerNotification.title }));
-        } else {
-            notificationStream = users.filter(user => user.medium.some(ele => mediums.includes(ele)))
-                .filter(user => user.group.some(ele => group.includes(ele)))
-                .map(({  group, ...keep }) => keep)
-                .map(ele => ({ ...ele, message: offerNotification.message }))
-                .map(ele => ({ ...ele, title: offerNotification.title }));
-        }
-    }
     
-    notificationStream.forEach(ele => {
-        // console.log("loggin inside feeder validator",ele);
-        const obj = {
-            id : ele.id,
-            title : ele.title,
-            message: ele.message,
-            phone : ele.phone,
-            email: ele.email,
-            freq: ele.freq,
-            medium: Array.from(ele.medium)
+
+
+
+    async.waterfall([
+        (next: any)=>{
+            
+            if (userId != '*' && userId.length > 1) {
+                // throw an error
+                notificationStream = users.filter(user => user.id === userId)
+                    .map(({ group, ...keep }) => keep)
+                    .map(ele => ({ ...ele, message: offerNotification.message }))
+                    .map(ele => ({ ...ele, title: offerNotification.title })), next(null, notificationStream);
+
+            } else {
+
+                if (mediums.includes('*') || group.includes('*')) {
+                    notificationStream = users.map(({ group, ...keep }) => keep)
+                        .map(ele => ({ ...ele, message: offerNotification.message }))
+                        .map(ele => ({ ...ele, title: offerNotification.title })),next(null,notificationStream);
+                } else {
+                    notificationStream = users.filter(user => user.medium.some(ele => mediums.includes(ele)))
+                        .filter(user => user.group.some(ele => group.includes(ele)))
+                        .map(({ group, ...keep }) => keep)
+                        .map(ele => ({ ...ele, message: offerNotification.message }))
+                        .map(ele => ({ ...ele, title: offerNotification.title })),next(null,notificationStream);
+                }
+            }
+
+        },
+        (notificationStream: any[],next: (arg0: null, arg1: string) => void)  => {
+            // console.log(notificationStream);
+            notificationStream.forEach(ele => {
+                // console.log("loggin inside feeder validator",ele);
+                const obj = {
+                    id: ele.id,
+                    title: ele.title,
+                    message: ele.message,
+                    phone: ele.phone,
+                    email: ele.email,
+                    freq: ele.freq,
+                    medium: Array.from(ele.medium)
+                }
+                const result = stream.write(eventType.toBuffer(obj));
+                if (result) {
+                    console.log("PRODUCER 1 : stream written succesffully");
+
+                } else {
+                    console.log("PRODUCER 1 : stream cannot be written");
+                    (new Error('cannot be written'))
+                }
+            })
+
+            next(null,"result");
         }
-        const result = stream.write(eventType.toBuffer(obj));
-        if (result) {
-            console.log("stream written succesffully");
-           
-        } else {
-            console.log("stream cannot be written");
+
+    ],(error: any,result : any)=>{
+        
+        if(error){
+            console.log(error.message);
+        }else{
+        //    console.log("exiting FV validator succesfully");
         }
+
     })
+    
+    
+    
+    
+    
+    
     
 }
 
